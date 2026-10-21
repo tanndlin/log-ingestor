@@ -1,4 +1,7 @@
+CREATE TYPE level AS ENUM ('FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE');
+
 CREATE TABLE IF NOT EXISTS traces (
+    level LEVEL NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,
     message TEXT NOT NULL
 );

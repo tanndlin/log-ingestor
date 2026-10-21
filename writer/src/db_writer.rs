@@ -7,7 +7,7 @@ use std::{
 };
 
 use sqlx::PgPool;
-use util::Trace;
+use util::{Level, Trace};
 
 use crate::{counting_reader::CountingReader, event::Event, wal_pos::WalPos};
 
@@ -138,11 +138,18 @@ fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Vec<Trace> {
 }
 
 async fn db_insert(pool: &PgPool, traces: Vec<Trace>) {
-    let (timestamps, messages): (Vec<_>, Vec<_>) =
-        traces.into_iter().map(|t| (t.timestamp, t.message)).unzip();
+    let mut levels = Vec::with_capacity(traces.len());
+    let mut timestamps = Vec::with_capacity(traces.len());
+    let mut messages = Vec::with_capacity(traces.len());
+    for t in traces {
+        levels.push(t.level);
+        timestamps.push(t.timestamp);
+        messages.push(t.message);
+    }
 
     sqlx::query!(
-        "INSERT INTO traces (timestamp, message) SELECT * FROM UNNEST($1::timestamptz[], $2::text[])",
+        "INSERT INTO traces (level, timestamp, message) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[])",
+        &levels as &[Level],
         &timestamps,
         &messages,
     )

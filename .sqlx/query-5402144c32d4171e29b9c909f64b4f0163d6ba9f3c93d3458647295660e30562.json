@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO traces (level, timestamp, message) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "level[]",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "level",
+                  "kind": {
+                    "Enum": [
+                      "FATAL",
+                      "ERROR",
+                      "WARN",
+                      "INFO",
+                      "DEBUG",
+                      "TRACE"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TimestamptzArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5402144c32d4171e29b9c909f64b4f0163d6ba9f3c93d3458647295660e30562"
+}
