@@ -431,7 +431,9 @@ dependencies = [
 name = "tanlogs-client"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "chrono",
+ "tokio-util",
  "util",
 ]
 
