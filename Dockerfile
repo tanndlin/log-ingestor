@@ -18,6 +18,7 @@ COPY protobuf_ingestor ./protobuf_ingestor
 COPY tcp_ingestor ./tcp_ingestor
 COPY tanlogs-client ./tanlogs-client
 COPY writer ./writer
+COPY test-client ./test-client
 
 
 # The cargo registry and target/ live in BuildKit cache mounts, so deps and
