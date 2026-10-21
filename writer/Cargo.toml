@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+util = { version = "0.1.0", path = "../util" }
 
 [lints]
 workspace = true

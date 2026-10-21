@@ -206,6 +206,7 @@ dependencies = [
  "protobuf_ingestor",
  "tcp_ingestor",
  "tokio",
+ "writer",
 ]
 
 [[package]]
@@ -653,3 +654,6 @@ dependencies = [
 [[package]]
 name = "writer"
 version = "0.1.0"
+dependencies = [
+ "util",
+]

@@ -1,4 +1,9 @@
+use std::sync::{Arc, Mutex};
+
+use writer::WalWriter;
+
 #[tokio::main]
 async fn main() {
-    tcp_ingestor::run().await;
+    let wal_writer = Arc::new(Mutex::new(WalWriter::new("wal")));
+    tcp_ingestor::run(wal_writer).await;
 }

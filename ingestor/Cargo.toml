@@ -8,6 +8,7 @@ http_ingestor = { version = "0.1.0", path = "../http_ingestor" }
 protobuf_ingestor = { version = "0.1.0", path = "../protobuf_ingestor" }
 tcp_ingestor = { version = "0.1.0", path = "../tcp_ingestor" }
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+writer = { version = "0.1.0", path = "../writer" }
 
 [lints]
 workspace = true
