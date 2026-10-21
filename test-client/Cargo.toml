@@ -1,0 +1,10 @@
+[package]
+name = "test-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tanlogs-client = { version = "0.1.0", path = "../tanlogs-client" }
+
+[lints]
+workspace = true

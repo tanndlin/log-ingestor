@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "http_ingestor",
     "ingestor",
-    "protobuf_ingestor", "tanlogs-client", "tcp_ingestor", "util", "writer",
+    "protobuf_ingestor", "tanlogs-client", "tcp_ingestor", "test-client", "util", "writer",
 ]
 
 [workspace.lints.clippy]
