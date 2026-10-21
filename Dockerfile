@@ -50,3 +50,19 @@ CMD ["./ingestor"]
 FROM runtime AS querier
 COPY --from=builder /out/querier /app/querier
 CMD ["./querier"]
+
+# ---------- viewer ----------
+FROM node:26-slim AS viewer-builder
+WORKDIR /app
+RUN npm install -g pnpm@12.15.0
+
+COPY log-viewer/package.json log-viewer/pnpm-lock.yaml log-viewer/pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+COPY log-viewer ./
+RUN pnpm build
+
+FROM nginx:alpine AS viewer
+COPY log-viewer/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=viewer-builder /app/dist /usr/share/nginx/html

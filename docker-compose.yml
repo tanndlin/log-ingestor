@@ -84,6 +84,25 @@ services:
         - action: rebuild
           path: ./Dockerfile
 
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: viewer
+    ports:
+      - "${VIEWER_PORT:-8080}:80"
+    depends_on:
+      - querier
+    networks:
+      - ingestor-host-network
+    develop:
+      watch:
+        - action: rebuild
+          path: ./log-viewer
+          ignore:
+            - node_modules/
+            - dist/
+
 networks:
   ingestor-host-network:
     driver: bridge

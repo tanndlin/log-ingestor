@@ -1,2 +1,4 @@
 target/
 .git/
+log-viewer/node_modules/
+log-viewer/dist/
