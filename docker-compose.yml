@@ -23,6 +23,28 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ingestor
+    # `docker compose watch` (or `up --watch`): Rust is compiled, so any change
+    # to the ingestor or a crate it depends on triggers an image rebuild.
+    develop:
+      watch:
+        - action: rebuild
+          path: ./ingestor
+        - action: rebuild
+          path: ./http_ingestor
+        - action: rebuild
+          path: ./protobuf_ingestor
+        - action: rebuild
+          path: ./tcp_ingestor
+        - action: rebuild
+          path: ./util
+        - action: rebuild
+          path: ./writer
+        - action: rebuild
+          path: ./Cargo.toml
+        - action: rebuild
+          path: ./Cargo.lock
+        - action: rebuild
+          path: ./Dockerfile
 
 networks:
   ingestor-host-network:

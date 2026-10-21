@@ -15,6 +15,8 @@ COPY util ./util
 COPY ingestor ./ingestor
 COPY http_ingestor ./http_ingestor
 COPY protobuf_ingestor ./protobuf_ingestor
+COPY tcp_ingestor ./tcp_ingestor
+COPY tanlogs-client ./tanlogs-client
 COPY writer ./writer
 
 
