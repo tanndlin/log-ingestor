@@ -55,6 +55,34 @@ services:
           path: ./Cargo.lock
         - action: rebuild
           path: ./Dockerfile
+  querier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: querier
+    init: true
+    ports:
+      - "${QUERIER_PORT:-1336}:1336"
+    environment:
+      DATABASE_URL: postgres://user:password@db:5432/traces
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ingestor-host-network
+    # Same as above, for the querier and the crates it depends on.
+    develop:
+      watch:
+        - action: rebuild
+          path: ./querier
+        - action: rebuild
+          path: ./util
+        - action: rebuild
+          path: ./Cargo.toml
+        - action: rebuild
+          path: ./Cargo.lock
+        - action: rebuild
+          path: ./Dockerfile
 
 networks:
   ingestor-host-network:

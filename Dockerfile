@@ -21,6 +21,7 @@ COPY protobuf_ingestor ./protobuf_ingestor
 COPY tcp_ingestor ./tcp_ingestor
 COPY tanlogs-client ./tanlogs-client
 COPY writer ./writer
+COPY querier ./querier
 COPY test-client ./test-client
 
 
@@ -34,7 +35,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target,sharing=locked \
     cargo build --release --workspace \
     && mkdir -p /out \
-    && cp target/release/ingestor /out/
+    && cp target/release/ingestor target/release/querier /out/
 
 # ---------- runtime ----------
 FROM debian:trixie-slim AS runtime
@@ -45,3 +46,7 @@ RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificat
 FROM runtime AS ingestor
 COPY --from=builder /out/ingestor /app/ingestor
 CMD ["./ingestor"]
+
+FROM runtime AS querier
+COPY --from=builder /out/querier /app/querier
+CMD ["./querier"]

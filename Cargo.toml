@@ -2,7 +2,7 @@
 resolver = "3"
 members = [
     "http_ingestor",
-    "ingestor",
+    "ingestor", "querier",
     "protobuf_ingestor", "tanlogs-client", "tcp_ingestor", "test-client", "util", "writer",
 ]
 
