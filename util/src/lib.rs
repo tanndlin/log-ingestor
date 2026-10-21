@@ -1,3 +1,3 @@
-mod types;
+mod trace;
 
-pub use types::{MAX_TRACE_SIZE, Trace};
+pub use trace::{MAX_TRACE_SIZE, Trace};
