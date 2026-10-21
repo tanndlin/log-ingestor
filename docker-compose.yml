@@ -18,6 +18,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  ingestor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ingestor
 
 networks:
   ingestor-host-network:
