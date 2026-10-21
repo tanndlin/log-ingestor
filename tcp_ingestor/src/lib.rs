@@ -20,7 +20,14 @@ async fn handle_client(stream: TcpStream, addr: SocketAddr) {
 
     let mut frames = FramedRead::new(stream, LengthDelimitedCodec::new());
 
-    while let Some(Ok(frame)) = frames.next().await {
+    while let Some(frame) = frames.next().await {
+        let frame = match frame {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Frame error from {addr}: {e}");
+                break;
+            }
+        };
         match postcard::from_bytes::<Trace>(&frame) {
             Ok(trace) => {
                 dbg!(trace);
