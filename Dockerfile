@@ -11,6 +11,7 @@ WORKDIR /app
 ENV SQLX_OFFLINE=true
 
 COPY Cargo.toml Cargo.lock ./
+COPY writer/migrations ./migrations
 COPY .sqlx ./.sqlx
 
 COPY util ./util
