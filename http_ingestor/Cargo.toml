@@ -1,0 +1,11 @@
+[package]
+name = "http_ingestor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+util = { version = "0.1.0", path = "../util" }
+writer = { version = "0.1.0", path = "../writer" }
+
+[lints]
+workspace = true

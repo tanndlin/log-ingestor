@@ -1,0 +1,15 @@
+[workspace]
+resolver = "3"
+members = [
+    "http_ingestor",
+    "ingestor",
+    "protobuf_ingestor", "util", "writer",
+]
+
+[workspace.lints.clippy]
+must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+pedantic = { level = "warn", priority = -1 }

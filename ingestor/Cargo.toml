@@ -1,0 +1,11 @@
+[package]
+name = "ingestor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+http_ingestor = { version = "0.1.0", path = "../http_ingestor" }
+protobuf_ingestor = { version = "0.1.0", path = "../protobuf_ingestor" }
+
+[lints]
+workspace = true
