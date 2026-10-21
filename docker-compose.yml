@@ -23,6 +23,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ingestor
+    init: true
     ports:
       - "${TCP_PORT:-1337}:1337"
     environment:

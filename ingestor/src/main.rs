@@ -8,5 +8,29 @@ async fn main() {
     let (wal_writer, _db_writer) = get_writers("wal", &db_url).unwrap();
     let wal_writer = Arc::new(Mutex::new(wal_writer));
 
-    tcp_ingestor::run(wal_writer).await;
+    tokio::select! {
+        () = tcp_ingestor::run(wal_writer) => {}
+        () = shutdown_signal() => println!("Shutting down"),
+    }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.unwrap();
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .unwrap()
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {}
+        () = terminate => {}
+    }
 }
