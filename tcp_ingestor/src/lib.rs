@@ -9,10 +9,12 @@ use util::Trace;
 use writer::WalWriter;
 
 pub async fn run(wal_writer: Arc<Mutex<WalWriter>>) {
-    // TODO: Pull port from env var
-    let tcp_listener = TcpListener::bind("0.0.0.0:1337").await.unwrap();
+    let tcp_port = std::env::var("TCP_PORT").unwrap_or("1337".to_string());
+    let tcp_listener = TcpListener::bind(format!("0.0.0.0:{tcp_port}"))
+        .await
+        .unwrap();
     let local_addr = tcp_listener.local_addr().unwrap();
-    println!("TCP Ingestor listen on: {local_addr}");
+    println!("TCP Ingestor listening on: {local_addr}");
     loop {
         let (stream, addr) = tcp_listener.accept().await.unwrap();
         tokio::spawn(handle_client(stream, addr, wal_writer.clone()));

@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
       target: ingestor
     ports:
-      - "1337:1337"
+      - "${TCP_PORT:-1337}:1337"
     environment:
       DATABASE_URL: postgres://user:password@db:5432/traces
     depends_on:
