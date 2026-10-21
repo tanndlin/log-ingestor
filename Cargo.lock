@@ -34,6 +34,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tcp_ingestor"
+version = "0.1.0"
+dependencies = [
+ "util",
+ "writer",
+]
+
+[[package]]
 name = "util"
 version = "0.1.0"
 
