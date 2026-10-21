@@ -16,9 +16,9 @@ pub struct Trace {
 }
 
 impl Trace {
-    pub fn debug(message: String) -> Self {
+    pub fn new(level: Level, message: String) -> Self {
         Self {
-            level: Level::Debug,
+            level,
             timestamp: Utc::now(),
             message,
         }

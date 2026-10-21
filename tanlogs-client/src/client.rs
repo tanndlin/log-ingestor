@@ -5,7 +5,7 @@ use std::{
 };
 use tokio_util::codec::{Encoder, LengthDelimitedCodec};
 
-use util::Trace;
+use util::{Level, Trace};
 
 pub struct TanLogsClient {
     tcp_stream: TcpStream,
@@ -24,8 +24,31 @@ impl TanLogsClient {
         }
     }
 
-    pub fn log_debug(&mut self, message: String) {
-        let trace = Trace::debug(message);
+    pub fn fatal(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Fatal, message));
+    }
+
+    pub fn error(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Error, message));
+    }
+
+    pub fn warn(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Warn, message));
+    }
+
+    pub fn info(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Info, message));
+    }
+
+    pub fn debug(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Debug, message));
+    }
+
+    pub fn trace(&mut self, message: String) {
+        self.send_trace(&Trace::new(Level::Trace, message));
+    }
+
+    fn send_trace(&mut self, trace: &Trace) {
         let bytes = trace.to_vec();
 
         self.buf.clear();
