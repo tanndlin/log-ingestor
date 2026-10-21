@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO traces (timestamp, message) SELECT * FROM UNNEST($1::timestamptz[], $2::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TimestamptzArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "80674e85290eaba673d677c82f58a0d8df6f8aa066a87539df9a6e1318bae1e8"
+}

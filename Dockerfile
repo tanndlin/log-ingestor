@@ -11,6 +11,8 @@ WORKDIR /app
 ENV SQLX_OFFLINE=true
 
 COPY Cargo.toml Cargo.lock ./
+COPY .sqlx ./.sqlx
+
 COPY util ./util
 COPY ingestor ./ingestor
 COPY http_ingestor ./http_ingestor
