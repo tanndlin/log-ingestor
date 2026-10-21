@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::PgPool;
 use util::Trace;
 
 use crate::{counting_reader::CountingReader, event::Event, wal_pos::WalPos};
@@ -138,14 +138,17 @@ fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Vec<Trace> {
 }
 
 async fn db_insert(pool: &PgPool, traces: Vec<Trace>) {
-    let mut query_builder = QueryBuilder::new("INSERT INTO traces (timestamp, message)");
+    let (timestamps, messages): (Vec<_>, Vec<_>) =
+        traces.into_iter().map(|t| (t.timestamp, t.message)).unzip();
 
-    query_builder.push_values(traces, |mut b, trace| {
-        b.push_bind(trace.timestamp).push_bind(trace.message);
-    });
-
-    let query = query_builder.build();
-    query.execute(pool).await.unwrap();
+    sqlx::query!(
+        "INSERT INTO traces (timestamp, message) SELECT * FROM UNNEST($1::timestamptz[], $2::text[])",
+        &timestamps,
+        &messages,
+    )
+    .execute(pool)
+    .await
+    .unwrap();
 }
 
 fn save_checkpoint(wal_dir: &Path, pos: &WalPos) {
