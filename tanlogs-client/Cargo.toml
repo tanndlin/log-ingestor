@@ -8,6 +8,8 @@ anyhow = "1.0.104"
 bytes = "1.12.1"
 chrono = "0.4.45"
 tokio-util = { version = "0.7.19", default-features = false, features = ["codec"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
 util = { version = "0.1.0", path = "../util" }
 
 [lints]

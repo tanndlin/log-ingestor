@@ -48,6 +48,10 @@ impl TanLogsClient {
         self.send_trace(&Trace::new(Level::Trace, message))
     }
 
+    pub fn send(&mut self, level: Level, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(level, message))
+    }
+
     fn send_trace(&mut self, trace: &Trace) -> Result<()> {
         let bytes = trace.to_vec().context("serializing trace")?;
 

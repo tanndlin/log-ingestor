@@ -1,13 +1,18 @@
 use anyhow::Result;
-use tanlogs_client::TanLogsClient;
+use tanlogs_client::TanLogsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() -> Result<()> {
-    let mut log_client = TanLogsClient::connect("127.0.0.1:1337")?;
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(TanLogsLayer::new("127.0.0.1:1337")?)
+        .init();
+
     for i in 0..10u32 {
         if i.is_multiple_of(2) {
-            log_client.debug(format!("Test: {i}"))?;
+            tracing::debug!("Test: {i}");
         } else {
-            log_client.info(format!("Test: {i}"))?;
+            tracing::info!("Test: {i}");
         }
     }
     Ok(())
