@@ -2,13 +2,14 @@ use chrono::{DateTime, Utc};
 use heapless::Vec;
 use postcard::to_vec;
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 
 pub const MAX_TRACE_SIZE: usize = 1024;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Trace {
-    timestamp: DateTime<Utc>,
-    message: String,
+    pub timestamp: DateTime<Utc>,
+    pub message: String,
 }
 
 impl Trace {

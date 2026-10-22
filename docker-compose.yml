@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: logs
+      POSTGRES_DB: traces
     ports:
       - "5432:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
     networks:
       - ingestor-host-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d logs"]
+      test: ["CMD-SHELL", "pg_isready -U user -d traces"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,6 +23,13 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ingestor
+    environment:
+      DATABASE_URL: postgres://user:password@db:5432/traces
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ingestor-host-network
     # `docker compose watch` (or `up --watch`): Rust is compiled, so any change
     # to the ingestor or a crate it depends on triggers an image rebuild.
     develop:

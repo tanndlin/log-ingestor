@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS traces (
+    timestamp TIMESTAMPTZ NOT NULL,
+    message TEXT NOT NULL
+);
