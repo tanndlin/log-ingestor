@@ -16,6 +16,7 @@ pub struct Trace {
 }
 
 impl Trace {
+    #[must_use]
     pub fn new(level: Level, message: String) -> Self {
         Self {
             level,
@@ -24,6 +25,7 @@ impl Trace {
         }
     }
 
+    #[must_use]
     pub fn to_vec(&self) -> Vec<u8, MAX_TRACE_SIZE> {
         to_vec(self).unwrap()
     }
