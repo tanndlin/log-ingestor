@@ -25,8 +25,7 @@ impl Trace {
         }
     }
 
-    #[must_use]
-    pub fn to_vec(&self) -> Vec<u8, MAX_TRACE_SIZE> {
-        to_vec(self).unwrap()
+    pub fn to_vec(&self) -> Result<Vec<u8, MAX_TRACE_SIZE>, postcard::Error> {
+        to_vec(self)
     }
 }

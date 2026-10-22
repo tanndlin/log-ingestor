@@ -9,6 +9,5 @@ members = [
 [workspace.lints.clippy]
 cast_possible_truncation = "allow"
 missing_errors_doc = "allow"
-missing_panics_doc = "allow"
 
 pedantic = { level = "warn", priority = -1 }

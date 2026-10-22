@@ -1,5 +1,6 @@
 mod search_query;
 
+use anyhow::{Context, Result};
 use axum::{
     Json, Router,
     extract::{Query, State},
@@ -19,9 +20,9 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
-    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL needs to be set");
-    let pool = PgPool::connect(&db_url).await.unwrap();
+async fn main() -> Result<()> {
+    let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL needs to be set")?;
+    let pool = PgPool::connect(&db_url).await.context("connecting to db")?;
     let state = AppState { pool };
 
     let app = Router::new()
@@ -30,11 +31,13 @@ async fn main() {
         .with_state(state);
 
     let port = std::env::var("QUERIER_PORT").unwrap_or("1336".to_string());
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .with_context(|| format!("binding querier to port {port}"))?;
 
-    let local_addr = listener.local_addr().unwrap();
+    let local_addr = listener.local_addr()?;
     println!("Log Querier listening on {local_addr}");
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await.context("serving querier")
 }
 
 async fn search(
@@ -60,5 +63,8 @@ async fn search(
         .fetch_all(&state.pool)
         .await
         .map(Json)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(|e| {
+            eprintln!("Search query failed: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }

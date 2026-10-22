@@ -18,6 +18,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -630,6 +636,7 @@ dependencies = [
 name = "http_ingestor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "serde",
  "tokio",
@@ -834,6 +841,7 @@ dependencies = [
 name = "ingestor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "http_ingestor",
  "protobuf_ingestor",
  "tcp_ingestor",
@@ -1039,6 +1047,7 @@ dependencies = [
 name = "querier"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "serde",
  "sqlx",
@@ -1504,6 +1513,7 @@ dependencies = [
 name = "tanlogs-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytes",
  "chrono",
  "tokio-util",
@@ -1514,6 +1524,7 @@ dependencies = [
 name = "tcp_ingestor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures-util",
  "postcard",
  "tokio",
@@ -1526,6 +1537,7 @@ dependencies = [
 name = "test-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "tanlogs-client",
 ]
 
@@ -1886,6 +1898,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 name = "writer"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "postcard",
  "sqlx",
  "tokio",

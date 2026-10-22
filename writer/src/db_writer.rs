@@ -6,6 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use anyhow::{Context, Result};
 use sqlx::PgPool;
 use util::{Level, Trace};
 
@@ -28,10 +29,10 @@ impl DbWriter {
         }
     }
 
-    async fn run(self) {
-        let mut pos = get_last_checkpoint(&self.wal_dir).unwrap();
-        let mut file = open_segment(&self.wal_dir, pos.segment).unwrap();
-        file.seek(SeekFrom::Start(pos.offset)).unwrap();
+    async fn run(self) -> Result<()> {
+        let mut pos = get_last_checkpoint(&self.wal_dir)?;
+        let mut file = open_segment(&self.wal_dir, pos.segment)?;
+        file.seek(SeekFrom::Start(pos.offset))?;
         while let Ok(event) = self.rx.recv() {
             match event {
                 Event::Committed(committed) => {
@@ -42,27 +43,29 @@ impl DbWriter {
                     let limit = if pos.segment == committed.segment {
                         committed.offset
                     } else {
-                        segment_len(&self.wal_dir, pos.segment)
+                        segment_len(&self.wal_dir, pos.segment)?
                     };
 
-                    let batch = read_records(&mut file, &mut pos, limit);
+                    let batch = read_records(&mut file, &mut pos, limit)?;
                     if !batch.is_empty() {
-                        db_insert(&self.pool, batch).await;
-                        save_checkpoint(&self.wal_dir, &pos);
+                        db_insert(&self.pool, batch).await?;
+                        save_checkpoint(&self.wal_dir, &pos)?;
                     }
 
                     if pos.segment != committed.segment
-                        && pos.offset == segment_len(&self.wal_dir, pos.segment)
+                        && pos.offset == segment_len(&self.wal_dir, pos.segment)?
                     {
                         pos = WalPos {
-                            segment: next_segment(&self.wal_dir, pos.segment),
+                            segment: next_segment(&self.wal_dir, pos.segment)?,
                             offset: 0,
                         };
-                        file = open_segment(&self.wal_dir, pos.segment).unwrap();
+                        file = open_segment(&self.wal_dir, pos.segment)?;
                     }
                 }
             }
         }
+
+        Ok(())
     }
 }
 
@@ -70,22 +73,31 @@ pub fn create_db_writer(
     wal_dir: impl Into<PathBuf>,
     db_url: &str,
     rx: Receiver<Event>,
-) -> Result<JoinHandle<()>, String> {
-    let pool = PgPool::connect_lazy(db_url).map_err(|e| e.to_string())?;
+) -> Result<JoinHandle<()>> {
+    let pool = PgPool::connect_lazy(db_url).context("connecting to postgres")?;
     let db_writer = DbWriter::new(wal_dir, pool, rx);
 
     let thread = thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        rt.block_on(async {
-            sqlx::migrate!().run(&db_writer.pool).await.unwrap();
-            db_writer.run().await;
-        });
+        if let Err(e) = run_on_thread(db_writer) {
+            eprintln!("DB writer stopped: {e:#}");
+        }
     });
 
     Ok(thread)
+}
+
+fn run_on_thread(db_writer: DbWriter) -> Result<()> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("building DB writer runtime")?;
+    rt.block_on(async {
+        sqlx::migrate!()
+            .run(&db_writer.pool)
+            .await
+            .context("running migrations")?;
+        db_writer.run().await
+    })
 }
 
 fn get_last_checkpoint(wal_dir: &Path) -> io::Result<WalPos> {
@@ -111,16 +123,17 @@ fn open_segment(wal_dir: &Path, segment: u64) -> io::Result<File> {
         .open(wal_dir.join(format!("{segment:020}.seg")))
 }
 
-fn segment_len(wal_dir: &Path, segment: u64) -> u64 {
-    fs::metadata(wal_dir.join(format!("{segment:020}.seg")))
-        .unwrap()
-        .len()
+fn segment_len(wal_dir: &Path, segment: u64) -> Result<u64> {
+    Ok(fs::metadata(wal_dir.join(format!("{segment:020}.seg")))
+        .context("getting existing segment metadata")?
+        .len())
 }
 
-fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Vec<Trace> {
+fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Result<Vec<Trace>> {
     // The BufReader below reads ahead and is dropped on return, leaving the
     // file cursor past the last decoded record, so resync it to `pos` each call.
-    file.seek(SeekFrom::Start(pos.offset)).unwrap();
+    file.seek(SeekFrom::Start(pos.offset))
+        .context("seeking in file to read records")?;
     let mut traces = vec![];
     let mut reader = CountingReader {
         inner: BufReader::new(file),
@@ -129,15 +142,16 @@ fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Vec<Trace> {
     let mut scratch = [0u8; util::MAX_TRACE_SIZE];
     while traces.len() < MAX_BATCH && pos.offset < limit {
         let before = reader.count;
-        let (next, _) = postcard::from_io((&mut reader, &mut scratch)).unwrap();
+        let (next, _) =
+            postcard::from_io((&mut reader, &mut scratch)).context("reading records from file")?;
         pos.offset += reader.count - before;
         traces.push(next);
     }
 
-    traces
+    Ok(traces)
 }
 
-async fn db_insert(pool: &PgPool, traces: Vec<Trace>) {
+async fn db_insert(pool: &PgPool, traces: Vec<Trace>) -> Result<()> {
     let mut levels = Vec::with_capacity(traces.len());
     let mut timestamps = Vec::with_capacity(traces.len());
     let mut messages = Vec::with_capacity(traces.len());
@@ -154,24 +168,26 @@ async fn db_insert(pool: &PgPool, traces: Vec<Trace>) {
         &messages,
     )
     .execute(pool)
-    .await
-    .unwrap();
+    .await?;
+
+    Ok(())
 }
 
-fn save_checkpoint(wal_dir: &Path, pos: &WalPos) {
+fn save_checkpoint(wal_dir: &Path, pos: &WalPos) -> Result<()> {
     let temp_path = wal_dir.join("checkpoint.tmp");
     {
-        let mut file = File::create(&temp_path).unwrap();
-        write!(file, "{}\n{}", pos.segment, pos.offset).unwrap();
-        file.sync_all().unwrap();
+        let mut file = File::create(&temp_path).context("creating checkpoint.tmp")?;
+        write!(file, "{}\n{}", pos.segment, pos.offset)?;
+        file.sync_all().context("fsync")?;
     }
 
-    fs::rename(&temp_path, wal_dir.join("checkpoint")).unwrap();
+    fs::rename(&temp_path, wal_dir.join("checkpoint")).context("renaming checkpoint.temp")?;
     // Windows can't open a directory as a File; NTFS journals the rename itself.
     #[cfg(unix)]
-    File::open(wal_dir).unwrap().sync_all().unwrap();
+    File::open(wal_dir)?.sync_all()?;
+    Ok(())
 }
 
-fn next_segment(wal_dir: &Path, segment: u64) -> u64 {
-    segment + segment_len(wal_dir, segment)
+fn next_segment(wal_dir: &Path, segment: u64) -> Result<u64> {
+    Ok(segment + segment_len(wal_dir, segment)?)
 }

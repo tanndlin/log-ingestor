@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use bytes::{Bytes, BytesMut};
 use std::{
     io::Write,
@@ -14,47 +15,50 @@ pub struct TanLogsClient {
 }
 
 impl TanLogsClient {
-    pub fn new(addr: impl ToSocketAddrs) -> Self {
-        let tcp_stream = TcpStream::connect(addr).unwrap();
+    pub fn connect(addr: impl ToSocketAddrs) -> Result<Self> {
+        let tcp_stream = TcpStream::connect(addr)?;
         println!("SDK Client connected to ingestor");
-        Self {
+        Ok(Self {
             tcp_stream,
             codec: LengthDelimitedCodec::new(),
             buf: BytesMut::new(),
-        }
+        })
     }
 
-    pub fn fatal(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Fatal, message));
+    pub fn fatal(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Fatal, message))
     }
 
-    pub fn error(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Error, message));
+    pub fn error(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Error, message))
     }
 
-    pub fn warn(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Warn, message));
+    pub fn warn(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Warn, message))
     }
 
-    pub fn info(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Info, message));
+    pub fn info(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Info, message))
     }
 
-    pub fn debug(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Debug, message));
+    pub fn debug(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Debug, message))
     }
 
-    pub fn trace(&mut self, message: String) {
-        self.send_trace(&Trace::new(Level::Trace, message));
+    pub fn trace(&mut self, message: String) -> Result<()> {
+        self.send_trace(&Trace::new(Level::Trace, message))
     }
 
-    fn send_trace(&mut self, trace: &Trace) {
-        let bytes = trace.to_vec();
+    fn send_trace(&mut self, trace: &Trace) -> Result<()> {
+        let bytes = trace.to_vec().context("serializing trace")?;
 
         self.buf.clear();
         self.codec
             .encode(Bytes::copy_from_slice(&bytes), &mut self.buf)
-            .unwrap();
-        self.tcp_stream.write_all(&self.buf).unwrap();
+            .context("encoding trace frame")?;
+        self.tcp_stream
+            .write_all(&self.buf)
+            .context("sending trace to ingestor")?;
+        Ok(())
     }
 }

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.104"
 http_ingestor = { version = "0.1.0", path = "../http_ingestor" }
 protobuf_ingestor = { version = "0.1.0", path = "../protobuf_ingestor" }
 tcp_ingestor = { version = "0.1.0", path = "../tcp_ingestor" }
