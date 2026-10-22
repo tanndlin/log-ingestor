@@ -14,8 +14,6 @@ pub async fn run(wal_writer: Arc<Mutex<WalWriter>>) -> Result<()> {
     let tcp_listener = TcpListener::bind(format!("0.0.0.0:{tcp_port}"))
         .await
         .with_context(|| format!("binding TCP ingestor to port {tcp_port}"))?;
-    let local_addr = tcp_listener.local_addr()?;
-    println!("TCP Ingestor listening on: {local_addr}");
     loop {
         match tcp_listener.accept().await {
             Ok((stream, addr)) => {

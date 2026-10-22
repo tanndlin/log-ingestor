@@ -17,7 +17,6 @@ pub struct TanLogsClient {
 impl TanLogsClient {
     pub fn connect(addr: impl ToSocketAddrs) -> Result<Self> {
         let tcp_stream = TcpStream::connect(addr)?;
-        println!("SDK Client connected to ingestor");
         Ok(Self {
             tcp_stream,
             codec: LengthDelimitedCodec::new(),

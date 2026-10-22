@@ -18,7 +18,6 @@ pub async fn run(wal_writer: Arc<Mutex<WalWriter>>) -> Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .with_context(|| format!("binding HTTP ingestor to port {port}"))?;
-    println!("HTTP Ingestor listening on: {}", listener.local_addr()?);
 
     let app = Router::new()
         .route("/traces", post(ingest))
