@@ -9,7 +9,8 @@ async fn main() {
     let wal_writer = Arc::new(Mutex::new(wal_writer));
 
     tokio::select! {
-        () = tcp_ingestor::run(wal_writer) => {}
+        () = tcp_ingestor::run(wal_writer.clone()) => {}
+        () = http_ingestor::run(wal_writer) => {}
         () = shutdown_signal() => println!("Shutting down"),
     }
 }

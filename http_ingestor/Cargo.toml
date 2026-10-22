@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+axum = "0.8.9"
+serde = "1.0.229"
+tokio = "1.54.1"
 util = { version = "0.1.0", path = "../util" }
 writer = { version = "0.1.0", path = "../writer" }
 

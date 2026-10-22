@@ -26,6 +26,7 @@ services:
     init: true
     ports:
       - "${TCP_PORT:-1337}:1337"
+      - "${HTTP_PORT:-1338}:1338"
     environment:
       DATABASE_URL: postgres://user:password@db:5432/traces
     depends_on:
