@@ -13,15 +13,19 @@ pub struct Trace {
     pub level: Level,
     pub timestamp: DateTime<Utc>,
     pub message: String,
+    pub application: String,
+    pub span_id: Option<i64>,
 }
 
 impl Trace {
     #[must_use]
-    pub fn new(level: Level, message: String) -> Self {
+    pub fn new(level: Level, message: String, application: String, span_id: Option<i64>) -> Self {
         Self {
             level,
             timestamp: Utc::now(),
             message,
+            application,
+            span_id,
         }
     }
 

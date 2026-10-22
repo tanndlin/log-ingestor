@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO traces (level, timestamp, message) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[])",
+  "query": "INSERT INTO traces (level, timestamp, message, application, span_id) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[], $4::text[], $5::bigint[])",
   "describe": {
     "columns": [],
     "parameters": {
@@ -28,10 +28,12 @@
           }
         },
         "TimestamptzArray",
-        "TextArray"
+        "TextArray",
+        "TextArray",
+        "Int8Array"
       ]
     },
     "nullable": []
   },
-  "hash": "5402144c32d4171e29b9c909f64b4f0163d6ba9f3c93d3458647295660e30562"
+  "hash": "f26e561a8baa8314f61dc803da10360ba5fa8abeb33fbe9b2df18932340a3d56"
 }

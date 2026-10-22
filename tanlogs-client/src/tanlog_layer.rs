@@ -4,6 +4,7 @@ use anyhow::Result;
 use tracing::{
     Event, Subscriber,
     field::{Field, Visit},
+    span,
 };
 use tracing_subscriber::{
     layer::{Context, Layer},
@@ -17,8 +18,8 @@ pub struct TanLogsLayer {
 }
 
 impl TanLogsLayer {
-    pub fn new(addr: impl ToSocketAddrs) -> Result<Self> {
-        let client = Mutex::new(TanLogsClient::connect(addr)?);
+    pub fn new(addr: impl ToSocketAddrs, application_name: impl Into<String>) -> Result<Self> {
+        let client = Mutex::new(TanLogsClient::connect(addr, application_name)?);
         Ok(Self { client })
     }
 }
@@ -28,6 +29,8 @@ struct MessageVisitor {
     message: String,
     fields: String,
 }
+
+struct TanSpanId(i64);
 
 impl Visit for MessageVisitor {
     fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
@@ -44,7 +47,17 @@ impl<S> Layer<S> for TanLogsLayer
 where
     S: Subscriber + for<'lookup> LookupSpan<'lookup>,
 {
-    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+    fn on_new_span(&self, _attrs: &span::Attributes<'_>, id: &span::Id, ctx: Context<'_, S>) {
+        let span = ctx.span(id).expect("span must exist in registry");
+        let span_id = rand::random::<i64>();
+        span.extensions_mut().insert(TanSpanId(span_id));
+    }
+
+    fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
+        let span_id = ctx
+            .event_span(event)
+            .and_then(|s| s.extensions().get::<TanSpanId>().map(|id| id.0));
+
         let level = match *event.metadata().level() {
             tracing::Level::ERROR => util::Level::Error,
             tracing::Level::WARN => util::Level::Warn,
@@ -61,7 +74,8 @@ where
         let Ok(mut client) = self.client.lock() else {
             return;
         };
-        if let Err(e) = client.send(level, message) {
+
+        if let Err(e) = client.send(level, message, span_id) {
             eprintln!("tanlogs: failed to send trace: {e:#}");
         }
     }

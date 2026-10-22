@@ -155,17 +155,23 @@ async fn db_insert(pool: &PgPool, traces: Vec<Trace>) -> Result<()> {
     let mut levels = Vec::with_capacity(traces.len());
     let mut timestamps = Vec::with_capacity(traces.len());
     let mut messages = Vec::with_capacity(traces.len());
+    let mut applications = Vec::with_capacity(traces.len());
+    let mut span_ids = Vec::with_capacity(traces.len());
     for t in traces {
         levels.push(t.level);
         timestamps.push(t.timestamp);
         messages.push(t.message);
+        applications.push(t.application);
+        span_ids.push(t.span_id);
     }
 
     sqlx::query!(
-        "INSERT INTO traces (level, timestamp, message) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[])",
+        "INSERT INTO traces (level, timestamp, message, application, span_id) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[], $4::text[], $5::bigint[])",
         &levels as &[Level],
         &timestamps,
         &messages,
+        &applications,
+        &span_ids as &[Option<i64>],
     )
     .execute(pool)
     .await?;

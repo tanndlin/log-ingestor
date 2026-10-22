@@ -1,4 +1,5 @@
 mod search_query;
+mod trace_response;
 
 use anyhow::{Context, Result};
 use axum::{
@@ -12,7 +13,7 @@ use sqlx::{PgPool, QueryBuilder};
 use tokio::net::TcpListener;
 use util::Trace;
 
-use crate::search_query::SearchQuery;
+use crate::{search_query::SearchQuery, trace_response::TraceResponse};
 
 #[derive(Clone)]
 struct AppState {
@@ -44,7 +45,7 @@ async fn search(
     Query(params): Query<SearchQuery>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let mut qb = QueryBuilder::new("SELECT level, timestamp, message FROM traces WHERE 1=1");
+    let mut qb = QueryBuilder::new("SELECT * FROM traces WHERE 1=1");
     if let Some(level) = params.level {
         qb.push(" AND level = ").push_bind(level);
     }
@@ -58,11 +59,25 @@ async fn search(
     if let Some(after) = params.after {
         qb.push(" AND timestamp > ").push_bind(after);
     }
+    if let Some(application) = params.application {
+        qb.push(" AND application ILIKE ")
+            .push_bind(format!("%{application}%"));
+    }
+    if let Some(span_id) = params.span_id {
+        qb.push(" AND span_id = ").push_bind(span_id);
+    }
 
     qb.build_query_as::<Trace>()
         .fetch_all(&state.pool)
         .await
-        .map(Json)
+        .map(|traces| {
+            Json(
+                traces
+                    .into_iter()
+                    .map(TraceResponse::from)
+                    .collect::<Vec<_>>(),
+            )
+        })
         .map_err(|e| {
             eprintln!("Search query failed: {e}");
             StatusCode::INTERNAL_SERVER_ERROR

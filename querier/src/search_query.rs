@@ -8,4 +8,6 @@ pub struct SearchQuery {
     pub message: Option<String>,
     pub before: Option<DateTime<Utc>>,
     pub after: Option<DateTime<Utc>>,
+    pub application: Option<String>,
+    pub span_id: Option<i64>,
 }

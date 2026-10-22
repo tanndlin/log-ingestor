@@ -6,16 +6,26 @@
     level: Level;
     timestamp: string;
     message: string;
+    application: string;
+    // Sent as a string: 64-bit ids don't survive a JS number.
+    span_id: string | null;
   };
 
   let level = $state<Level | "">("");
   let message = $state("");
   let after = $state("");
   let before = $state("");
+  let application = $state("");
+  let spanId = $state<string | null>(null);
 
   let traces = $state<Trace[]>([]);
   let loading = $state(false);
   let error = $state("");
+
+  // Span ids are random, so a short hex prefix is enough to tell them apart.
+  function shortSpanId(id: string) {
+    return BigInt.asUintN(64, BigInt(id)).toString(16).padStart(16, "0").slice(0, 8);
+  }
 
   async function search(params: URLSearchParams, signal: AbortSignal) {
     loading = true;
@@ -41,6 +51,8 @@
     // datetime-local values are local time; the querier expects RFC 3339.
     if (after) params.set("after", new Date(after).toISOString());
     if (before) params.set("before", new Date(before).toISOString());
+    if (application) params.set("application", application);
+    if (spanId) params.set("span_id", spanId);
 
     const controller = new AbortController();
     const timer = setTimeout(() => search(params, controller.signal), 250);
@@ -67,6 +79,10 @@
       <input type="search" placeholder="Contains…" bind:value={message} />
     </label>
     <label>
+      Application
+      <input type="search" placeholder="Contains…" bind:value={application} />
+    </label>
+    <label>
       After
       <input type="datetime-local" bind:value={after} />
     </label>
@@ -75,6 +91,14 @@
       <input type="datetime-local" bind:value={before} />
     </label>
   </form>
+
+  {#if spanId}
+    <p class="span-filter">
+      Showing span
+      <code>#{shortSpanId(spanId)}</code>
+      <button type="button" onclick={() => (spanId = null)}>Clear</button>
+    </p>
+  {/if}
 
   {#if error}
     <p class="status error">{error}</p>
@@ -88,6 +112,8 @@
           <tr>
             <th>Time</th>
             <th>Level</th>
+            <th>Application</th>
+            <th>Span</th>
             <th>Message</th>
           </tr>
         </thead>
@@ -96,6 +122,29 @@
             <tr>
               <td class="time">{new Date(trace.timestamp).toLocaleString()}</td>
               <td><span class="level level-{trace.level.toLowerCase()}">{trace.level}</span></td>
+              <td>
+                <button
+                  type="button"
+                  class="filter-link"
+                  title="Show only logs from this application"
+                  onclick={() => (application = trace.application)}
+                >
+                  {trace.application}
+                </button>
+              </td>
+              <td>
+                {#if trace.span_id}
+                  {@const id = trace.span_id}
+                  <button
+                    type="button"
+                    class="filter-link mono"
+                    title="Show only logs from this span"
+                    onclick={() => (spanId = id)}
+                  >
+                    #{shortSpanId(id)}
+                  </button>
+                {/if}
+              </td>
               <td class="message">{trace.message}</td>
             </tr>
           {/each}
@@ -224,6 +273,46 @@
 
   .level {
     font-weight: 600;
+  }
+
+  .span-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .span-filter code {
+    color: var(--fg);
+  }
+
+  .span-filter button {
+    font: inherit;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+
+  .filter-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    white-space: nowrap;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .filter-link:hover {
+    text-decoration: underline;
+  }
+
+  .mono {
+    font-family: ui-monospace, monospace;
   }
 
   .level-fatal {

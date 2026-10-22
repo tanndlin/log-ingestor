@@ -5,7 +5,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(TanLogsLayer::new("127.0.0.1:1337")?)
+        .with(TanLogsLayer::new("127.0.0.1:1337", "test-client")?)
         .init();
 
     for i in 0..10u32 {

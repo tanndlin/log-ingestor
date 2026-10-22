@@ -11,6 +11,8 @@ use writer::WalWriter;
 struct TraceIngest {
     level: Level,
     message: String,
+    application: String,
+    span_id: Option<i64>,
 }
 
 pub async fn run(wal_writer: Arc<Mutex<WalWriter>>) -> Result<()> {
@@ -30,9 +32,14 @@ pub async fn run(wal_writer: Arc<Mutex<WalWriter>>) -> Result<()> {
 
 async fn ingest(
     State(wal_writer): State<Arc<Mutex<WalWriter>>>,
-    Json(TraceIngest { level, message }): Json<TraceIngest>,
+    Json(TraceIngest {
+        level,
+        message,
+        application,
+        span_id,
+    }): Json<TraceIngest>,
 ) -> StatusCode {
-    let trace = Trace::new(level, message);
+    let trace = Trace::new(level, message, application, span_id);
 
     // WalWriter::write has no panic paths, so a poisoned lock leaves it usable
     let mut wal_writer = wal_writer.lock().unwrap_or_else(PoisonError::into_inner);
