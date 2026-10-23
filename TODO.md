@@ -7,7 +7,7 @@
 - Named spans
 - Application dropdown in viewer (exact match, needs querier endpoint listing apps)
 - 53-bit span ids so the querier can drop TraceResponse
-- Client SDK reconnect when the ingestor restarts
+- Client SDK: first trace after an ingestor restart is lost (write succeeds into a dead socket; only acks would catch it)
 - Let HTTP ingest send its own timestamp
 - Version the postcard Trace format so old WAL entries still decode
 - ORDER BY / LIMIT in querier search
