@@ -5,3 +5,22 @@
 - protobuf ingestor
 - Redis cache or similar
 - Named spans
+- Application dropdown in viewer (exact match, needs querier endpoint listing apps)
+- 53-bit span ids so the querier can drop TraceResponse
+- Client SDK reconnect when the ingestor restarts
+- Let HTTP ingest send its own timestamp
+- Version the postcard Trace format so old WAL entries still decode
+- Fix log-viewer formatting (`vp check --fix`)
+- ORDER BY / LIMIT in querier search
+- pg_trgm index for message/application search, index on timestamp
+- Parent span / trace ids
+- Viewer filters in URL
+- Live tail in viewer
+- API keys for HTTP ingestor
+- WAL group commit + fsync before publishing committed position
+- Writer: watch channel seeded with recovered position, drain until caught up (no backlog stall after restart)
+- Writer: retry DB inserts with backoff instead of dying (currently kills ingestion)
+- WAL torn-tail recovery on startup + per-record CRC
+- Writer batches: byte limit + linger time
+- Delete WAL segments below the checkpoint
+- TCP ingest has no acks; failed WAL writes are only logged server-side

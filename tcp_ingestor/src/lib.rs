@@ -40,7 +40,6 @@ async fn handle_client(stream: TcpStream, addr: SocketAddr, wal_writer: Arc<Mute
         };
         match postcard::from_bytes::<Trace>(&frame) {
             Ok(trace) => {
-                dbg!(&trace);
                 // WalWriter::write has no panic paths, so a poisoned lock leaves it usable
                 let mut wal_writer = wal_writer.lock().unwrap_or_else(PoisonError::into_inner);
                 if let Err(e) = wal_writer.write(&trace) {
