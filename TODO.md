@@ -19,8 +19,9 @@
 - API keys for HTTP ingestor
 - WAL group commit + fsync before publishing committed position
 - Writer: watch channel seeded with recovered position, drain until caught up (no backlog stall after restart)
-- Writer: retry DB inserts with backoff instead of dying (currently kills ingestion)
+- Writer: permanent insert errors still stop the writer; skip or dead-letter the bad batch instead
 - WAL torn-tail recovery on startup + per-record CRC
 - Writer batches: byte limit + linger time
 - Delete WAL segments below the checkpoint
 - TCP ingest has no acks; failed WAL writes are only logged server-side
+- Writer: idempotent inserts (unique (segment, offset) + ON CONFLICT DO NOTHING) so replays don't duplicate rows

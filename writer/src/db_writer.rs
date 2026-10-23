@@ -1,23 +1,32 @@
 use std::{
+    cell::RefCell,
+    collections::VecDeque,
     fs::{self, File, OpenOptions},
+    future::Future,
     io::{self, BufReader, ErrorKind, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
-    sync::mpsc::Receiver,
+    path::PathBuf,
+    sync::mpsc::{Receiver, TryRecvError},
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use anyhow::{Context, Result};
-use sqlx::PgPool;
+use sqlx::{PgPool, postgres::PgPoolOptions};
+use tokio::time::Instant;
 use util::{Level, Trace};
 
 use crate::{counting_reader::CountingReader, event::Event, wal_pos::WalPos};
 
 const MAX_BATCH: usize = 10_000;
+/// How often a retry backoff checks whether the WAL writer has shut down.
+const SHUTDOWN_POLL: Duration = Duration::from_millis(100);
 
 pub struct DbWriter {
     wal_dir: PathBuf,
     pool: PgPool,
     rx: Receiver<Event>,
+    /// Events taken off `rx` while checking for shutdown, handled before reading `rx` again.
+    pending: RefCell<VecDeque<Event>>,
 }
 
 impl DbWriter {
@@ -26,14 +35,26 @@ impl DbWriter {
             wal_dir: wal_dir.into(),
             pool,
             rx,
+            pending: RefCell::default(),
         }
     }
 
-    async fn run(self) -> Result<()> {
+    async fn run(&self) -> Result<()> {
+        // Wait out a DB that isn't up yet before migrating.
+        with_retry(
+            "connecting to postgres",
+            || self.is_shut_down(),
+            || self.pool.acquire(),
+        )
+        .await?;
+        sqlx::migrate!()
+            .run(&self.pool)
+            .await
+            .context("running migrations")?;
         let mut pos = self.get_last_checkpoint()?;
         let mut file = self.open_segment(pos.segment)?;
         file.seek(SeekFrom::Start(pos.offset))?;
-        while let Ok(event) = self.rx.recv() {
+        while let Some(event) = self.next_event() {
             match event {
                 Event::Committed(committed) => {
                     if pos == committed {
@@ -48,7 +69,7 @@ impl DbWriter {
 
                     let batch = read_records(&mut file, &mut pos, limit)?;
                     if !batch.is_empty() {
-                        self.db_insert(&self.pool, batch).await?;
+                        self.db_insert(batch).await?;
                         self.save_checkpoint(&pos)?;
                     }
 
@@ -66,6 +87,23 @@ impl DbWriter {
         }
 
         Ok(())
+    }
+
+    fn next_event(&self) -> Option<Event> {
+        let pending = self.pending.borrow_mut().pop_front();
+        pending.or_else(|| self.rx.recv().ok())
+    }
+
+    /// True once the WAL writer has dropped its sender. Queued events are moved
+    /// to `pending` rather than dropped, since `rx` can't be peeked.
+    fn is_shut_down(&self) -> bool {
+        loop {
+            match self.rx.try_recv() {
+                Ok(event) => self.pending.borrow_mut().push_back(event),
+                Err(TryRecvError::Empty) => return false,
+                Err(TryRecvError::Disconnected) => return true,
+            }
+        }
     }
 
     fn get_last_checkpoint(&self) -> io::Result<WalPos> {
@@ -99,7 +137,7 @@ impl DbWriter {
         )
     }
 
-    async fn db_insert(&self, pool: &PgPool, traces: Vec<Trace>) -> Result<()> {
+    async fn db_insert(&self, traces: Vec<Trace>) -> Result<()> {
         let mut levels = Vec::with_capacity(traces.len());
         let mut timestamps = Vec::with_capacity(traces.len());
         let mut messages = Vec::with_capacity(traces.len());
@@ -113,15 +151,21 @@ impl DbWriter {
             span_ids.push(t.span_id);
         }
 
-        sqlx::query!(
-            "INSERT INTO traces (level, timestamp, message, application, span_id) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[], $4::text[], $5::bigint[])",
-            &levels as &[Level],
-            &timestamps,
-            &messages,
-            &applications,
-            &span_ids as &[Option<i64>],
-        )
-        .execute(pool)
+        // The batch stays in memory, so a transient failure retries the same rows
+        // instead of restarting from the checkpoint.
+        // Giving up on shutdown is safe: the checkpoint isn't advanced, so the
+        // batch is replayed on the next start.
+        with_retry("inserting batch", || self.is_shut_down(), || {
+            sqlx::query!(
+                "INSERT INTO traces (level, timestamp, message, application, span_id) SELECT * FROM UNNEST($1::level[], $2::timestamptz[], $3::text[], $4::text[], $5::bigint[])",
+                &levels as &[Level],
+                &timestamps,
+                &messages,
+                &applications,
+                &span_ids as &[Option<i64>],
+            )
+            .execute(&self.pool)
+        })
         .await?;
 
         Ok(())
@@ -153,11 +197,19 @@ pub fn create_db_writer(
     db_url: &str,
     rx: Receiver<Event>,
 ) -> Result<JoinHandle<()>> {
-    let pool = PgPool::connect_lazy(db_url).context("connecting to postgres")?;
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect_lazy(db_url)
+        .context("parsing postgres url")?;
     let db_writer = DbWriter::new(wal_dir, pool, rx);
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("building DB writer runtime")?;
 
     let thread = thread::spawn(move || {
-        if let Err(e) = run_on_thread(db_writer) {
+        if let Err(e) = rt.block_on(db_writer.run()) {
             eprintln!("DB writer stopped: {e:#}");
         }
     });
@@ -165,18 +217,46 @@ pub fn create_db_writer(
     Ok(thread)
 }
 
-fn run_on_thread(db_writer: DbWriter) -> Result<()> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("building DB writer runtime")?;
-    rt.block_on(async {
-        sqlx::migrate!()
-            .run(&db_writer.pool)
-            .await
-            .context("running migrations")?;
-        db_writer.run().await
-    })
+/// Retries `f` with capped exponential backoff while it fails with a transient
+/// error. Permanent errors (bad data, constraint violations) return immediately,
+/// and so does the last transient error once `is_shut_down` reports true.
+async fn with_retry<T, F, Fut>(what: &str, is_shut_down: impl Fn() -> bool, mut f: F) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, sqlx::Error>>,
+{
+    let mut delay = Duration::from_secs(1);
+    loop {
+        match f().await {
+            Err(e) if is_transient(&e) => {
+                eprintln!("{what} failed: {e}. Retrying in {delay:?}...");
+                let deadline = Instant::now() + delay;
+                loop {
+                    if is_shut_down() {
+                        return Err(e).context(format!("{what}: shut down while retrying"));
+                    }
+                    let now = Instant::now();
+                    if now >= deadline {
+                        break;
+                    }
+                    tokio::time::sleep((deadline - now).min(SHUTDOWN_POLL)).await;
+                }
+                delay = (delay * 2).min(Duration::from_secs(10));
+            }
+            result => return result.with_context(|| what.to_owned()),
+        }
+    }
+}
+
+fn is_transient(e: &sqlx::Error) -> bool {
+    match e {
+        sqlx::Error::Io(_) | sqlx::Error::Tls(_) | sqlx::Error::PoolTimedOut => true,
+        // 08: connection exception, 53: insufficient resources, 57P: operator intervention (e.g. shutdown)
+        sqlx::Error::Database(db) => db
+            .code()
+            .is_some_and(|c| c.starts_with("08") || c.starts_with("53") || c.starts_with("57P")),
+        _ => false,
+    }
 }
 
 fn read_records(file: &mut File, pos: &mut WalPos, limit: u64) -> Result<Vec<Trace>> {
