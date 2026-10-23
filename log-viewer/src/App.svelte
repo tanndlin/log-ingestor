@@ -18,6 +18,19 @@
   let application = $state("");
   let spanId = $state<string | null>(null);
 
+  const hasFilters = $derived(
+    !!(level || message || after || before || application || spanId),
+  );
+
+  function clearFilters() {
+    level = "";
+    message = "";
+    after = "";
+    before = "";
+    application = "";
+    spanId = null;
+  }
+
   let traces = $state<Trace[]>([]);
   let loading = $state(false);
   let error = $state("");
@@ -90,6 +103,7 @@
       Before
       <input type="datetime-local" bind:value={before} />
     </label>
+    <button type="button" onclick={clearFilters} disabled={!hasFilters}>Clear filters</button>
   </form>
 
   {#if spanId}
@@ -219,13 +233,23 @@
   }
 
   input,
-  select {
+  select,
+  form button {
     font: inherit;
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--bg);
     color: var(--fg);
+  }
+
+  form button {
+    cursor: pointer;
+  }
+
+  form button:disabled {
+    color: var(--muted);
+    cursor: default;
   }
 
   .status {
