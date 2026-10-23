@@ -10,7 +10,6 @@
 - Client SDK reconnect when the ingestor restarts
 - Let HTTP ingest send its own timestamp
 - Version the postcard Trace format so old WAL entries still decode
-- Fix log-viewer formatting (`vp check --fix`)
 - ORDER BY / LIMIT in querier search
 - pg_trgm index for message/application search, index on timestamp
 - Parent span / trace ids
