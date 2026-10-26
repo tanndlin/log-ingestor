@@ -11,9 +11,14 @@ use axum::{
 };
 use sqlx::{PgPool, QueryBuilder};
 use tokio::net::TcpListener;
-use util::Trace;
 
-use crate::{search_query::SearchQuery, trace_response::TraceResponse};
+use crate::{
+    search_query::SearchQuery,
+    trace_response::{SearchResponse, TraceRow},
+};
+
+const DEFAULT_PAGE_SIZE: u16 = 100;
+const MAX_PAGE_SIZE: u16 = 1000;
 
 #[derive(Clone)]
 struct AppState {
@@ -66,18 +71,26 @@ async fn search(
     if let Some(span_id) = params.span_id {
         qb.push(" AND span_id = ").push_bind(span_id);
     }
+    if let (Some(ts), Some(id)) = (params.cursor_timestamp, params.cursor_id) {
+        qb.push(" AND (timestamp, id) < (")
+            .push_bind(ts)
+            .push(", ")
+            .push_bind(id)
+            .push(")");
+    }
 
-    qb.build_query_as::<Trace>()
+    let limit = params
+        .limit
+        .unwrap_or(DEFAULT_PAGE_SIZE)
+        .clamp(1, MAX_PAGE_SIZE);
+    // One extra row tells us whether there's another page.
+    qb.push(" ORDER BY timestamp DESC, id DESC LIMIT ")
+        .push_bind(i64::from(limit) + 1);
+
+    qb.build_query_as::<TraceRow>()
         .fetch_all(&state.pool)
         .await
-        .map(|traces| {
-            Json(
-                traces
-                    .into_iter()
-                    .map(TraceResponse::from)
-                    .collect::<Vec<_>>(),
-            )
-        })
+        .map(|rows| Json(SearchResponse::from_rows(rows, usize::from(limit))))
         .map_err(|e| {
             eprintln!("Search query failed: {e}");
             StatusCode::INTERNAL_SERVER_ERROR

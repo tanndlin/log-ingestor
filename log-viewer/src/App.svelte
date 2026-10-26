@@ -3,6 +3,7 @@
   type Level = (typeof LEVELS)[number];
 
   type Trace = {
+    id: number;
     level: Level;
     timestamp: string;
     message: string;
@@ -31,28 +32,50 @@
     spanId = null;
   }
 
+  type Cursor = { timestamp: string; id: number };
+  type SearchResponse = { traces: Trace[]; next_cursor: Cursor | null };
+
   let traces = $state<Trace[]>([]);
+  let nextCursor = $state<Cursor | null>(null);
   let loading = $state(false);
   let error = $state("");
+
+  // The filters and abort signal of the current search, so loading more
+  // pages keeps using them and is cancelled along with it.
+  let current: { params: URLSearchParams; signal: AbortSignal } | null = null;
 
   // Span ids are random, so a short hex prefix is enough to tell them apart.
   function shortSpanId(id: string) {
     return BigInt.asUintN(64, BigInt(id)).toString(16).padStart(16, "0").slice(0, 8);
   }
 
-  async function search(params: URLSearchParams, signal: AbortSignal) {
+  async function fetchPage(cursor: Cursor | null) {
+    if (!current) return;
+    const { signal } = current;
+    const params = new URLSearchParams(current.params);
+    if (cursor) {
+      params.set("cursor_timestamp", cursor.timestamp);
+      params.set("cursor_id", String(cursor.id));
+    }
+
     loading = true;
     error = "";
     try {
       const res = await fetch(`/api/search?${params}`, { signal });
       if (!res.ok) throw new Error(`Querier responded ${res.status}`);
-      const data: Trace[] = await res.json();
-      traces = data.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      const data: SearchResponse = await res.json();
+      traces = cursor ? [...traces, ...data.traces] : data.traces;
+      nextCursor = data.next_cursor;
     } catch (e) {
       if (signal.aborted) return;
       error = e instanceof Error ? e.message : String(e);
     }
     loading = false;
+  }
+
+  function search(params: URLSearchParams, signal: AbortSignal) {
+    current = { params, signal };
+    return fetchPage(null);
   }
 
   // Re-query whenever a filter changes. Typing is debounced, and a newer
@@ -114,12 +137,14 @@
     </p>
   {/if}
 
-  {#if error}
+  {#if error && traces.length === 0}
     <p class="status error">{error}</p>
   {:else if !loading && traces.length === 0}
     <p class="status">No logs found.</p>
   {:else}
-    <p class="status">{loading ? "Searching…" : `${traces.length} results`}</p>
+    <p class="status">
+      {loading ? "Searching…" : `${traces.length}${nextCursor ? "+" : ""} results`}
+    </p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -132,7 +157,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each traces as trace, i (i)}
+          {#each traces as trace (trace.id)}
             <tr>
               <td class="time">{new Date(trace.timestamp).toLocaleString()}</td>
               <td><span class="level level-{trace.level.toLowerCase()}">{trace.level}</span></td>
@@ -165,6 +190,14 @@
         </tbody>
       </table>
     </div>
+    {#if nextCursor}
+      <button type="button" class="load-more" disabled={loading} onclick={() => fetchPage(nextCursor)}>
+        {loading ? "Loading…" : "Load more"}
+      </button>
+    {/if}
+    {#if error}
+      <p class="status error">{error}</p>
+    {/if}
   {/if}
 </main>
 
@@ -311,7 +344,8 @@
     color: var(--fg);
   }
 
-  .span-filter button {
+  .span-filter button,
+  .load-more {
     font: inherit;
     padding: 2px 8px;
     border: 1px solid var(--border);
@@ -319,6 +353,17 @@
     background: var(--bg);
     color: var(--fg);
     cursor: pointer;
+  }
+
+  .load-more {
+    display: block;
+    margin: 12px auto;
+    padding: 8px 16px;
+  }
+
+  .load-more:disabled {
+    color: var(--muted);
+    cursor: default;
   }
 
   .filter-link {

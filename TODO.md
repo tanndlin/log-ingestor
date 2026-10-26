@@ -1,6 +1,5 @@
 # TODO
 
-- Pagination
 - Non-blocking client SDK
 - protobuf ingestor
 - Redis cache or similar
@@ -10,7 +9,6 @@
 - Client SDK: first trace after an ingestor restart is lost (write succeeds into a dead socket; only acks would catch it)
 - Let HTTP ingest send its own timestamp
 - Version the postcard Trace format so old WAL entries still decode
-- ORDER BY / LIMIT in querier search
 - pg_trgm index for message/application search, index on timestamp
 - Parent span / trace ids
 - Viewer filters in URL
